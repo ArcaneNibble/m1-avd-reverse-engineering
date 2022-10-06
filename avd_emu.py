@@ -173,7 +173,27 @@ def write_cm3ctrl_mbox1_submit(addr, val):
 	reply = emu.mem_read(real_addr, 0x60)
 	chexdump(reply)
 
+piodma_iova_lo = 0
+piodma_iova_hi = 0
+def write_piodma_iova_lo(_addr, val):
+	global piodma_iova_lo
+	piodma_iova_lo = val
+def write_piodma_iova_hi(_addr, val):
+	global piodma_iova_hi
+	piodma_iova_hi = val
+def write_piodma_command(_addr, val):
+	piodma_iova = piodma_iova_hi << 32 | piodma_iova_lo
+	print(f"piodma copy from descriptor @ {piodma_iova:016x} cmd {val:08x}")
+	# TODO actually do a piodma copy
+
 MMIOS = {
+	# Fake status to be done instantly, set no other bits
+	0x40070004: (lambda _addr: 1, lambda _addr, _val: None),
+
+	0x4007004c: (lambda _addr: piodma_iova_lo, write_piodma_iova_lo),
+	0x40070050: (lambda _addr: piodma_iova_hi, write_piodma_iova_hi),
+	0x40070054: (lambda _addr: 0xdeadbeef, write_piodma_command),
+
 	0x50010010: (read_cm3ctrl_irq_en_0, write_cm3ctrl_irq_en_0),
 	0x50010014: (read_cm3ctrl_irq_en, write_cm3ctrl_irq_en),
 	0x50010018: (read_cm3ctrl_irq_en, write_cm3ctrl_irq_en),
