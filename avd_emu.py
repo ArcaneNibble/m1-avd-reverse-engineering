@@ -2,6 +2,33 @@ import struct
 from unicorn import *
 from unicorn.arm_const import *
 
+def dump_all_regs(emu_):
+	r0 = emu_.reg_read(UC_ARM_REG_R0)
+	r1 = emu_.reg_read(UC_ARM_REG_R1)
+	r2 = emu_.reg_read(UC_ARM_REG_R2)
+	r3 = emu_.reg_read(UC_ARM_REG_R3)
+	print(f"R0  = {r0:08X}\tR1  = {r1:08X}\tR2  = {r2:08X}\tR3  = {r3:08X}")
+	r4 = emu_.reg_read(UC_ARM_REG_R4)
+	r5 = emu_.reg_read(UC_ARM_REG_R5)
+	r6 = emu_.reg_read(UC_ARM_REG_R6)
+	r7 = emu_.reg_read(UC_ARM_REG_R7)
+	print(f"R4  = {r4:08X}\tR5  = {r5:08X}\tR6  = {r6:08X}\tR7  = {r7:08X}")
+	r8 = emu_.reg_read(UC_ARM_REG_R8)
+	r9 = emu_.reg_read(UC_ARM_REG_R9)
+	r10 = emu_.reg_read(UC_ARM_REG_R10)
+	r11 = emu_.reg_read(UC_ARM_REG_R11)
+	print(f"R8  = {r8:08X}\tR9  = {r9:08X}\tR10 = {r10:08X}\tR11 = {r11:08X}")
+	r12 = emu_.reg_read(UC_ARM_REG_R12)
+	sp = emu_.reg_read(UC_ARM_REG_SP)
+	lr = emu_.reg_read(UC_ARM_REG_LR)
+	pc = emu_.reg_read(UC_ARM_REG_PC)
+	print(f"R12 = {r12:08X}\tSP  = {sp:08X}\tLR  = {lr:08X}\tPC  = {pc:08X}")
+
+def save_dram(emu_, fn):
+	dram_contents = emu_.mem_read(0x10000000, 0x10000)
+	with open(fn, 'wb') as f:
+		f.write(dram_contents)
+
 with open('avd-12.3-lilyD-fw.bin', 'rb') as f:
 	FIRMWARE = f.read()
 
@@ -64,4 +91,5 @@ emu.emu_start(initial_pc, 0)
 
 
 print("~~~~~ HOPEFULLY HIT WFI ~~~~~")
-
+dump_all_regs(emu)
+save_dram(emu, "avd_ram_after_boot.bin")
