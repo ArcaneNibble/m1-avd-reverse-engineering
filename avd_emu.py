@@ -146,8 +146,12 @@ def read_cm3ctrl_irq_en(addr):
 	reg_idx = (addr - 0x50010014) // 4
 	return cm3ctrl_enabled_irqs[reg_idx]
 
+cmd_idx = 0
 def read_cm3ctrl_mbox0_retrieve(_addr):
-	return 0x1092ccc
+	global cmd_idx
+	ret = 0x1092ccc + cmd_idx * 0x60
+	cmd_idx += 1
+	return ret
 
 def read_cm3ctrl_irq_status(addr):
 	print(f"NOT IMPLEMENTED: CM3 IRQ status read {addr:08x}")
@@ -202,6 +206,7 @@ MMIOS = {
 }
 
 MMIO_BLOCKS = [
+	(0x40070000, 0x4000),	# PIODMA
 	(0x40100000, 0x8000),	# Config
 	(0x4010c000, 0x4000),	# DMA thingy
 	(0x40400000, 0x4000),	# WrapCtrl
@@ -258,16 +263,25 @@ print("~~~~~ HOPEFULLY HIT WFI ~~~~~")
 dump_all_regs(emu)
 save_dram(emu, "avd_ram_after_boot.bin")
 
-# queue a command
-trigger_irq(emu, 1)
+with open('cmds.bin', 'rb') as f:
+	all_cmds = f.read()
 
-print("~~~~~ HOPEFULLY PROCESSED COMMAND ~~~~~")
-dump_all_regs(emu)
-save_dram(emu, "avd_ram_after_cmd.bin")
+num_cmds = len(all_cmds) // 0x60
 
-# get the reply
-trigger_irq(emu, 2)
+assert num_cmds <= 8 # FIXME
+emu.mem_write(0x10002ccc, all_cmds)
 
-print("~~~~~ HOPEFULLY GOT REPLY ~~~~~")
-dump_all_regs(emu)
-save_dram(emu, "avd_ram_after_reply.bin")
+for cmd_i in range(num_cmds):
+	# queue a command
+	trigger_irq(emu, 1)
+
+	print(f"~~~~~ HOPEFULLY PROCESSED COMMAND {cmd_i} ~~~~~")
+	dump_all_regs(emu)
+	save_dram(emu, f"avd_ram_after_cmd_{cmd_i}.bin")
+
+	# get the reply
+	trigger_irq(emu, 2)
+
+	print(f"~~~~~ HOPEFULLY GOT REPLY {cmd_i} ~~~~~")
+	dump_all_regs(emu)
+	save_dram(emu, f"avd_ram_after_reply_{cmd_i}.bin")
