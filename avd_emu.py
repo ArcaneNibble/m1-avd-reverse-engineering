@@ -59,6 +59,7 @@ def trigger_irq(emu_, irq):
 
 	emu_.reg_write(UC_ARM_REG_LR, HACK_WFI_ADDRESS + 1)
 	emu_.reg_write(UC_ARM_REG_PC, irq_handler)
+	emu_.emu_start(irq_handler, 0)
 
 with open('avd-12.3-lilyD-fw.bin', 'rb') as f:
 	FIRMWARE = f.read()
@@ -115,6 +116,9 @@ def read_cm3ctrl_irq_en(addr):
 	reg_idx = (addr - 0x50010014) // 4
 	return cm3ctrl_enabled_irqs[reg_idx]
 
+def read_cm3ctrl_mbox0_retrieve(_addr):
+	return 0x1092ccc
+
 MMIOS = {
 	0x50010010: (read_cm3ctrl_irq_en_0, write_cm3ctrl_irq_en_0),
 	0x50010014: (read_cm3ctrl_irq_en, write_cm3ctrl_irq_en),
@@ -123,6 +127,9 @@ MMIOS = {
 	0x50010020: (read_cm3ctrl_irq_en, write_cm3ctrl_irq_en),
 	0x50010024: (read_cm3ctrl_irq_en, write_cm3ctrl_irq_en),
 	0x50010028: (read_cm3ctrl_irq_en, write_cm3ctrl_irq_en),
+
+	0x50010058: (read_cm3ctrl_mbox0_retrieve, lambda _addr, _val: None),
+
 
 	0xe000ed08: (lambda _addr: None, write_vtor),
 	0xe000e100: (read_isen, write_isen),
@@ -133,8 +140,6 @@ MMIOS = {
 	0xe000e114: (read_isen, write_isen),
 	0xe000e118: (read_isen, write_isen),
 	0xe000e11c: (read_isen, write_isen),
-	# 0xdeadaa00: (read_magic_reg, write_magic_reg),
-	# 0xdeadaa04: (read_magic_reg_2, write_magic_reg_2),
 }
 
 MMIO_BLOCKS = [
@@ -172,6 +177,8 @@ for (addr, len_) in MMIO_BLOCKS:
 	emu.hook_add(UC_HOOK_MEM_READ, hook_mmio, begin=addr, end=addr + len_)
 	emu.hook_add(UC_HOOK_MEM_WRITE, hook_mmio, begin=addr, end=addr + len_)
 
+##### kick off!
+
 initial_sp = struct.unpack("<I", FIRMWARE[0:4])[0]
 initial_pc = struct.unpack("<I", FIRMWARE[4:8])[0]
 print(f"Starting @ {initial_pc:08x} with SP {initial_sp:08x}")
@@ -182,3 +189,7 @@ emu.emu_start(initial_pc, 0)
 print("~~~~~ HOPEFULLY HIT WFI ~~~~~")
 dump_all_regs(emu)
 save_dram(emu, "avd_ram_after_boot.bin")
+
+# queue a command
+
+trigger_irq(emu, 1)
