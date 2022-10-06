@@ -68,25 +68,6 @@ def trigger_irq(emu_, irq):
 	irq_handler = struct.unpack("<I", FIRMWARE[0x40 + irq*4:0x40 + irq*4 + 4])[0]
 	print(f"\tThe handler is at {irq_handler:08x}")
 
-	r0 = emu_.reg_read(UC_ARM_REG_R0)
-	r1 = emu_.reg_read(UC_ARM_REG_R1)
-	r2 = emu_.reg_read(UC_ARM_REG_R2)
-	r3 = emu_.reg_read(UC_ARM_REG_R3)
-	r12 = emu_.reg_read(UC_ARM_REG_R12)
-	lr = emu_.reg_read(UC_ARM_REG_LR)
-	pc = emu_.reg_read(UC_ARM_REG_PC)
-	sp = emu_.reg_read(UC_ARM_REG_SP)
-	xpsr = emu_.reg_read(UC_ARM_REG_XPSR)
-
-	# not sure if we have to do this?
-	if sp & 0b111 != 0:
-		print(f"\tAligning the stack to 8")
-		sp = sp & 0xfffffff8
-		xpsr |= (1 << 9)
-
-	sp -= 0x20
-	emu_.mem_write(sp, struct.pack("<IIIIIIII", r0, r1, r2, r3, r12, lr, pc, xpsr))
-
 	emu_.reg_write(UC_ARM_REG_LR, HACK_WFI_ADDRESS + 1)
 	emu_.reg_write(UC_ARM_REG_PC, irq_handler)
 	emu_.emu_start(irq_handler, 0)
