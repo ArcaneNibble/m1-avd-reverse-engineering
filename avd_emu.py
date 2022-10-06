@@ -1,7 +1,27 @@
+import struct
 from unicorn import *
 from unicorn.arm_const import *
 
-code = b"\x4a\xf6\x04\x20\xcd\xf6\xad\x60\x01\x68\x01\x31\x01\x60"
+code = b"\x4a\xf6\x00\x20\xcd\xf6\xad\x60\x02\xc8\x01\x31\x01\x60"
+
+def read_magic_reg():
+	print("READ MAGIC REG")
+	return 0xdeadc0de
+
+def write_magic_reg(val):
+	print(f"WRITE {val:08x} TO MAGIC REG")
+
+def read_magic_reg_2():
+	print("READ MAGIC REG 2")
+	return 0xcafebabe
+
+def write_magic_reg_2(val):
+	print(f"WRITE {val:08x} TO MAGIC REG 2")
+
+MMIOS = {
+	0xdeadaa00: (read_magic_reg, write_magic_reg),
+	0xdeadaa04: (read_magic_reg_2, write_magic_reg_2),
+}
 
 emu = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
 emu.mem_map(0, 0x10000)				# IRAM
@@ -10,12 +30,14 @@ emu.mem_map(0x10000000, 0x10000)	# DRAM
 emu.mem_write(0, code)
 
 def hook_mmio(emu_, access, addr, sz, value, data):
-	if addr == 0xdeadaa00:
+	if addr in MMIOS:
 		if access == UC_MEM_READ:
-			print("READ MAGIC REG")
-			emu_.mem_write(0xdeadaa00, b'\xaa\xbb\xcc\xdd')
+			read_fn = MMIOS[addr][0]
+			out_val = read_fn()
+			emu_.mem_write(addr, struct.pack("<I", out_val))
 		elif access == UC_MEM_WRITE:
-			print(f"WRITE MAGIC REG {value:08x}")
+			write_fn = MMIOS[addr][1]
+			write_fn(value)
 	else:
 		if access == UC_MEM_READ:
 			print(f"UNKNOWN read of size {sz} to register {addr:08x}")
