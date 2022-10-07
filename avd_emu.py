@@ -2,6 +2,11 @@ import struct
 from unicorn import *
 from unicorn.arm_const import *
 
+##### piodma stuff
+
+with open('frame_params.bin', 'rb') as f:
+	frame_params = f.read()
+
 ##### helpers
 
 HACK_WFI_ADDRESS = 0x3f8
@@ -167,7 +172,60 @@ def write_piodma_command(_addr, val):
 	print(f"piodma copy from descriptor @ {piodma_iova:016x} cmd {val:08x}")
 	# TODO actually do a piodma copy
 
+	# anything else not implemented
+	assert val & 0xff == 0x11
+	piodma_cmd_len = (val >> 8) & 0x3fffff
+
+	piodma_pkt_word = struct.unpack("<I", frame_params[piodma_iova:piodma_iova + 4])[0]
+	print(f"\tpacket word = {piodma_pkt_word:08x}")
+
+	# anything else not implemented
+	assert piodma_pkt_word & 0b11 == 0b01
+	piodma_dst_addr = piodma_pkt_word & 0x3fffc
+	piodma_pkt_len = (piodma_pkt_word >> 18) & 0xfff
+	assert (piodma_pkt_word >> 30) & 0b11 == 0
+	assert piodma_pkt_len + 2 == piodma_cmd_len
+
+	assert piodma_dst_addr >= 0x20000 and piodma_dst_addr < 0x30000
+	target_addr = 0x10000000 + piodma_dst_addr - 0x20000
+
+	word_count = piodma_pkt_len + 1
+	print(f"\tcopying {word_count} words to {target_addr:08x}")
+
+	words = frame_params[piodma_iova + 4:piodma_iova + 4 + word_count * 4]
+	emu.mem_write(target_addr, words)
+
+def read_config_maybe_fifo_level_0(addr):
+	print(f"WARN reading not-fully-understood register {addr:08x}")
+	return 0x80
+def read_config_maybe_fifo_level_1(addr):
+	print(f"WARN reading not-fully-understood register {addr:08x}")
+	return 0
+def warn_write(addr, val):
+	print(f"WARN unexpected write to register {addr:08x} = {val:08x}")
+
 MMIOS = {
+	0x40100034: (read_config_maybe_fifo_level_0, warn_write),
+	0x40100038: (read_config_maybe_fifo_level_0, warn_write),
+	0x4010003c: (read_config_maybe_fifo_level_0, warn_write),
+	0x40100040: (read_config_maybe_fifo_level_0, warn_write),
+	0x40100044: (read_config_maybe_fifo_level_0, warn_write),
+	0x40100048: (read_config_maybe_fifo_level_0, warn_write),
+	0x4010004c: (read_config_maybe_fifo_level_0, warn_write),
+	0x40100050: (read_config_maybe_fifo_level_0, warn_write),
+	0x40100054: (read_config_maybe_fifo_level_0, warn_write),
+	0x40100058: (read_config_maybe_fifo_level_0, warn_write),
+	0x4010005c: (read_config_maybe_fifo_level_1, warn_write),
+	0x40100060: (read_config_maybe_fifo_level_1, warn_write),
+	0x40100064: (read_config_maybe_fifo_level_1, warn_write),
+	0x40100068: (read_config_maybe_fifo_level_1, warn_write),
+	0x4010006c: (read_config_maybe_fifo_level_1, warn_write),
+	0x40100070: (read_config_maybe_fifo_level_1, warn_write),
+	0x40100074: (read_config_maybe_fifo_level_1, warn_write),
+	0x40100078: (read_config_maybe_fifo_level_1, warn_write),
+	0x4010007c: (read_config_maybe_fifo_level_1, warn_write),
+	0x40100080: (read_config_maybe_fifo_level_1, warn_write),
+
 	# Fake status to be done instantly, set no other bits
 	0x40070004: (lambda _addr: 1, lambda _addr, _val: None),
 
